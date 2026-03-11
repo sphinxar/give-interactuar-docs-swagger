@@ -1,0 +1,2010 @@
+swagger: "2.0"
+info:
+  title: GIVE Interactuar API
+  description: >
+    Read-only REST API for the GIVE Interactuar impact-measurement platform.
+    Backed by Supabase (PostgreSQL). All timestamps are ISO 8601 UTC.
+    Field names in the wire format follow snake_case matching database column names.
+  version: "1.0.0"
+  contact:
+    name: ACTA Team
+host: give-interactuar.vercel.app
+basePath: /api
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+
+# ── Tags ──────────────────────────────────────────────────────────────────────
+
+tags:
+  - name: organizations
+    description: Organizations and internal users
+  - name: entrepreneurs
+    description: Entrepreneurs, business profiles, snapshots, and financial profiles
+  - name: credentials
+    description: Verifiable credentials, issuance drafts, and credential templates
+  - name: forms-sync
+    description: Form sources, raw submissions, and sync run logs
+  - name: verification
+    description: Credential verification records
+  - name: analytics
+    description: Dashboard aggregates and raw empresario records
+
+# ── Reusable Responses ────────────────────────────────────────────────────────
+
+responses:
+  Error400:
+    description: Bad request — invalid query parameter or malformed UUID
+    schema:
+      $ref: '#/definitions/ErrorBody'
+  Error404:
+    description: Resource not found
+    schema:
+      $ref: '#/definitions/ErrorBody'
+  Error500:
+    description: Internal server error
+    schema:
+      $ref: '#/definitions/ErrorBody'
+
+# ── Definitions ───────────────────────────────────────────────────────────────
+
+definitions:
+
+  # --- Utility -----------------------------------------------------------------
+
+  ErrorBody:
+    type: object
+    required:
+      - error
+      - message
+    properties:
+      error:
+        type: string
+        description: Machine-readable error code (e.g. NOT_FOUND, INVALID_PARAM)
+      message:
+        type: string
+        description: Human-readable error description
+      details:
+        type: object
+        additionalProperties: true
+        x-nullable: true
+
+  PaginationMeta:
+    type: object
+    required:
+      - total
+      - page
+      - page_size
+      - has_next
+    properties:
+      total:
+        type: integer
+        description: Total records matching the query (unpaginated)
+      page:
+        type: integer
+        minimum: 1
+      page_size:
+        type: integer
+        minimum: 1
+      has_next:
+        type: boolean
+
+  # --- organizations -----------------------------------------------------------
+
+  Organization:
+    type: object
+    required:
+      - id
+      - name
+      - active
+      - created_at
+      - updated_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      name:
+        type: string
+      legal_name:
+        type: string
+        x-nullable: true
+      document_type:
+        type: string
+        x-nullable: true
+      document_number:
+        type: string
+        x-nullable: true
+      email:
+        type: string
+        format: email
+        x-nullable: true
+      phone:
+        type: string
+        x-nullable: true
+      metadata:
+        type: object
+        additionalProperties: true
+      active:
+        type: boolean
+      created_at:
+        type: string
+        format: date-time
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        readOnly: true
+
+  InternalUser:
+    type: object
+    required:
+      - id
+      - organization_id
+      - full_name
+      - email
+      - role
+      - active
+      - created_at
+      - updated_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      auth_user_id:
+        type: string
+        format: uuid
+        x-nullable: true
+      organization_id:
+        type: string
+        format: uuid
+      full_name:
+        type: string
+      email:
+        type: string
+        format: email
+      role:
+        type: string
+        enum: [admin, operator, viewer]
+      active:
+        type: boolean
+      created_at:
+        type: string
+        format: date-time
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        readOnly: true
+
+  # --- entrepreneurs -----------------------------------------------------------
+
+  Entrepreneur:
+    type: object
+    required:
+      - id
+      - organization_id
+      - first_name
+      - last_name
+      - full_name
+      - document_type
+      - document_number
+      - country
+      - active
+      - created_at
+      - updated_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      organization_id:
+        type: string
+        format: uuid
+      first_name:
+        type: string
+      last_name:
+        type: string
+      full_name:
+        type: string
+      document_type:
+        type: string
+      document_number:
+        type: string
+      email:
+        type: string
+        format: email
+        x-nullable: true
+      phone:
+        type: string
+        x-nullable: true
+      municipality:
+        type: string
+        x-nullable: true
+      department:
+        type: string
+        x-nullable: true
+      country:
+        type: string
+        default: Colombia
+      active:
+        type: boolean
+      metadata:
+        type: object
+        additionalProperties: true
+      created_at:
+        type: string
+        format: date-time
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        readOnly: true
+      # Optional enrichments — present only in GET /entrepreneurs/{id}
+      business_profile:
+        $ref: '#/definitions/BusinessProfile'
+      latest_snapshot:
+        $ref: '#/definitions/EntrepreneurProfileSnapshot'
+      financial_profile:
+        $ref: '#/definitions/FinancialProfile'
+
+  BusinessProfile:
+    type: object
+    required:
+      - id
+      - entrepreneur_id
+      - created_at
+      - updated_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      entrepreneur_id:
+        type: string
+        format: uuid
+      business_name:
+        type: string
+        x-nullable: true
+      business_sector:
+        type: string
+        x-nullable: true
+      business_activity:
+        type: string
+        x-nullable: true
+      monthly_sales:
+        type: number
+        x-nullable: true
+      monthly_costs:
+        type: number
+        x-nullable: true
+      employee_count:
+        type: integer
+        x-nullable: true
+      formalized:
+        type: boolean
+        x-nullable: true
+      metadata:
+        type: object
+        additionalProperties: true
+      created_at:
+        type: string
+        format: date-time
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        readOnly: true
+
+  EntrepreneurProfileSnapshot:
+    type: object
+    required:
+      - id
+      - entrepreneur_id
+      - snapshot_version
+      - is_latest
+      - snapshot_date
+      - data
+      - created_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      entrepreneur_id:
+        type: string
+        format: uuid
+      source_submission_id:
+        type: string
+        format: uuid
+        x-nullable: true
+      source_sync_run_id:
+        type: string
+        format: uuid
+        x-nullable: true
+      snapshot_version:
+        type: integer
+        minimum: 1
+      is_latest:
+        type: boolean
+      snapshot_date:
+        type: string
+        format: date-time
+      data:
+        type: object
+        additionalProperties: true
+      created_at:
+        type: string
+        format: date-time
+        readOnly: true
+
+  FinancialProfile:
+    type: object
+    required:
+      - id
+      - entrepreneur_id
+      - raw_data
+      - imported_at
+      - source_file
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      entrepreneur_id:
+        type: string
+        format: uuid
+      credit_level:
+        type: string
+        enum: [bajo, medio, alto, excelente]
+        x-nullable: true
+      loan_status:
+        type: string
+        x-nullable: true
+      raw_data:
+        type: object
+        additionalProperties: true
+      imported_at:
+        type: string
+        format: date-time
+      source_file:
+        type: string
+
+  # --- credentials -------------------------------------------------------------
+
+  Credential:
+    type: object
+    required:
+      - id
+      - organization_id
+      - entrepreneur_id
+      - credential_type
+      - status
+      - title
+      - public_id
+      - metadata
+      - public_claims
+      - created_at
+      - updated_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      organization_id:
+        type: string
+        format: uuid
+      entrepreneur_id:
+        type: string
+        format: uuid
+      template_id:
+        type: string
+        format: uuid
+        x-nullable: true
+      source_draft_id:
+        type: string
+        format: uuid
+        x-nullable: true
+      source_snapshot_id:
+        type: string
+        format: uuid
+        x-nullable: true
+      credential_type:
+        type: string
+        enum: [impact, verification, endorsement]
+      status:
+        type: string
+        enum: [draft, issued, revoked, expired, pending_endorsement]
+      title:
+        type: string
+      description:
+        type: string
+        x-nullable: true
+      public_id:
+        type: string
+        description: Human-readable public identifier used in the verification portal
+      issued_at:
+        type: string
+        format: date-time
+        x-nullable: true
+      expires_at:
+        type: string
+        format: date-time
+        x-nullable: true
+      revoked_at:
+        type: string
+        format: date-time
+        x-nullable: true
+      issuer_did:
+        type: string
+        x-nullable: true
+      acta_vc_id:
+        type: string
+        x-nullable: true
+        description: Verifiable credential ID from the ACTA (Stellar blockchain) registry
+      metadata:
+        type: object
+        additionalProperties: true
+      public_claims:
+        type: object
+        additionalProperties: true
+        description: Public-facing claims included in the issued credential
+      created_by:
+        type: string
+        format: uuid
+        x-nullable: true
+      created_at:
+        type: string
+        format: date-time
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        readOnly: true
+
+  IssuanceDraft:
+    type: object
+    required:
+      - id
+      - organization_id
+      - entrepreneur_id
+      - prepared_payload
+      - status
+      - created_at
+      - updated_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      organization_id:
+        type: string
+        format: uuid
+      entrepreneur_id:
+        type: string
+        format: uuid
+      template_id:
+        type: string
+        format: uuid
+        x-nullable: true
+      latest_snapshot_id:
+        type: string
+        format: uuid
+        x-nullable: true
+      prepared_payload:
+        type: object
+        additionalProperties: true
+        description: Serialized credential payload ready for signing and issuance
+      status:
+        type: string
+        enum: [draft, ready, archived]
+      created_by:
+        type: string
+        format: uuid
+        x-nullable: true
+      created_at:
+        type: string
+        format: date-time
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        readOnly: true
+
+  CredentialTemplate:
+    type: object
+    required:
+      - id
+      - organization_id
+      - name
+      - credential_type
+      - schema_version
+      - template_definition
+      - active
+      - created_at
+      - updated_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      organization_id:
+        type: string
+        format: uuid
+      name:
+        type: string
+      credential_type:
+        type: string
+        enum: [impact, verification, endorsement]
+      schema_version:
+        type: string
+        description: Semver string (e.g. "1.0.0")
+      template_definition:
+        type: object
+        additionalProperties: true
+        description: JSON schema or template definition used to render the credential
+      active:
+        type: boolean
+      created_at:
+        type: string
+        format: date-time
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        readOnly: true
+
+  # --- forms-sync --------------------------------------------------------------
+
+  FormSource:
+    type: object
+    required:
+      - id
+      - organization_id
+      - provider
+      - external_form_id
+      - name
+      - active
+      - created_at
+      - updated_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      organization_id:
+        type: string
+        format: uuid
+      provider:
+        type: string
+        description: Integration provider (e.g. "google_forms")
+      external_form_id:
+        type: string
+        description: Identifier of the form in the external provider's system
+      name:
+        type: string
+      description:
+        type: string
+        x-nullable: true
+      active:
+        type: boolean
+      metadata:
+        type: object
+        additionalProperties: true
+      created_at:
+        type: string
+        format: date-time
+        readOnly: true
+      updated_at:
+        type: string
+        format: date-time
+        readOnly: true
+
+  FormSubmissionRaw:
+    type: object
+    required:
+      - id
+      - form_source_id
+      - external_response_id
+      - raw_payload
+      - raw_answers
+      - synced_at
+      - created_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      form_source_id:
+        type: string
+        format: uuid
+      external_response_id:
+        type: string
+        description: Unique response ID from the external provider
+      submitted_at:
+        type: string
+        format: date-time
+        x-nullable: true
+      responder_email:
+        type: string
+        format: email
+        x-nullable: true
+      raw_payload:
+        type: object
+        additionalProperties: true
+        description: Full raw response payload from the provider
+      raw_answers:
+        type: object
+        additionalProperties: true
+        description: Normalized key-value answer map extracted from raw_payload
+      checksum:
+        type: string
+        x-nullable: true
+        description: Hash of raw_payload for deduplication
+      synced_at:
+        type: string
+        format: date-time
+      created_at:
+        type: string
+        format: date-time
+        readOnly: true
+
+  FormSyncRun:
+    type: object
+    required:
+      - id
+      - form_source_id
+      - status
+      - started_at
+      - total_fetched
+      - total_inserted
+      - total_updated
+      - total_failed
+      - error_log
+      - created_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      form_source_id:
+        type: string
+        format: uuid
+      status:
+        type: string
+        enum: [running, success, partial_success, failed]
+      started_at:
+        type: string
+        format: date-time
+      finished_at:
+        type: string
+        format: date-time
+        x-nullable: true
+      total_fetched:
+        type: integer
+        minimum: 0
+      total_inserted:
+        type: integer
+        minimum: 0
+      total_updated:
+        type: integer
+        minimum: 0
+      total_failed:
+        type: integer
+        minimum: 0
+      error_log:
+        type: array
+        items:
+          type: object
+          additionalProperties: true
+      metadata:
+        type: object
+        additionalProperties: true
+      created_at:
+        type: string
+        format: date-time
+        readOnly: true
+
+  # --- verification ------------------------------------------------------------
+
+  VerificationRecord:
+    type: object
+    required:
+      - id
+      - credential_id
+      - verification_result
+      - checked_at
+    properties:
+      id:
+        type: string
+        format: uuid
+        readOnly: true
+      credential_id:
+        type: string
+        format: uuid
+      verifier_type:
+        type: string
+        x-nullable: true
+        description: Type of verifier (e.g. "public_portal", "api_client")
+      verifier_identifier:
+        type: string
+        x-nullable: true
+        description: Identifier of the verifier (IP, DID, etc.)
+      verification_result:
+        type: string
+        enum: [success, failed]
+      checked_at:
+        type: string
+        format: date-time
+      metadata:
+        type: object
+        additionalProperties: true
+
+  # --- analytics (from db-schema JSON files) -----------------------------------
+
+  EmpresarioRecord:
+    type: object
+    description: >
+      Raw empresario record sourced from the MicroMBA impact measurement spreadsheet.
+      All field names are in Spanish matching the original data export format.
+    properties:
+      nombre:
+        type: string
+      empresa:
+        type: string
+        x-nullable: true
+      programa:
+        type: string
+        enum: ["MBA Empresarial", "MBA Agroempresarial"]
+      aliado:
+        type: string
+      estado:
+        type: string
+      genero:
+        type: string
+        enum: ["Mujer", "Hombre"]
+      municipio:
+        type: string
+      sector:
+        type: string
+      ventas_n1_cop:
+        type: integer
+        x-nullable: true
+        description: Baseline annual sales in COP (year N-1)
+      ventas_n_cop:
+        type: integer
+        x-nullable: true
+        description: Current annual sales in COP (year N)
+      variacion_pct:
+        type: number
+        x-nullable: true
+        description: Percentage variation in sales vs baseline
+      nuevos_empleos:
+        type: integer
+        x-nullable: true
+        description: Net new jobs created during the program
+      nivel:
+        type: string
+      grupo:
+        type: string
+      anio_cohorte:
+        type: integer
+        description: Program cohort year (e.g. 2024)
+      credito_vigente:
+        type: string
+        x-nullable: true
+      escolaridad:
+        type: string
+        x-nullable: true
+      estrato:
+        type: integer
+        x-nullable: true
+        description: Socioeconomic stratum (1–6 in Colombian classification)
+      zona_residencia:
+        type: string
+        x-nullable: true
+      figura_legal:
+        type: string
+        x-nullable: true
+      tamanio_empresa:
+        type: string
+        x-nullable: true
+      edad:
+        type: integer
+        x-nullable: true
+      rango_edad:
+        type: string
+        x-nullable: true
+      solicito_credito:
+        type: string
+        enum: ["Sí", "No"]
+      en_mora:
+        type: string
+        enum: ["Sí", "No"]
+
+  DashboardData:
+    type: object
+    description: Full dashboard aggregate data for the MicroMBA GIVE Colombia program
+    properties:
+      metadata:
+        type: object
+        properties:
+          programa:
+            type: string
+          periodo:
+            type: string
+          nota:
+            type: string
+          fuente:
+            type: string
+      resumen:
+        $ref: '#/definitions/DashboardResumen'
+      por_programa:
+        type: array
+        items:
+          $ref: '#/definitions/DashboardPorPrograma'
+      por_genero:
+        type: array
+        items:
+          $ref: '#/definitions/DashboardPorGenero'
+      por_aliado:
+        type: array
+        items:
+          $ref: '#/definitions/DashboardPorAliado'
+      por_edad:
+        type: array
+        items:
+          $ref: '#/definitions/DashboardPorEdad'
+      ventas_mensuales:
+        type: array
+        items:
+          $ref: '#/definitions/DashboardVentasMensuales'
+      cartera:
+        $ref: '#/definitions/DashboardCartera'
+
+  DashboardResumen:
+    type: object
+    description: High-level summary statistics for the program period
+    properties:
+      total_participantes:
+        type: integer
+      activos:
+        type: integer
+      tasa_retencion_pct:
+        type: number
+      mujeres:
+        type: integer
+      hombres:
+        type: integer
+      pct_mujeres:
+        type: number
+      ventas_total_n1_cop:
+        type: integer
+        description: Total sales of all participants at baseline (COP)
+      ventas_total_n_cop:
+        type: integer
+        description: Total sales of all participants at current period (COP)
+      ventas_promedio_n1_cop:
+        type: integer
+        description: Average sales per participant at baseline (COP)
+      ventas_promedio_n_cop:
+        type: integer
+        description: Average sales per participant at current period (COP)
+      variacion_promedio_pct:
+        type: number
+        description: Average percentage sales variation (outliers excluded)
+      empleos_tc_n1:
+        type: integer
+        description: Full-time equivalent jobs at baseline
+      empleos_tc_n:
+        type: integer
+        description: Full-time equivalent jobs at current period
+      nuevos_empleos:
+        type: integer
+      empleos_formalizados:
+        type: integer
+
+  DashboardPorPrograma:
+    type: object
+    properties:
+      programa:
+        type: string
+      participantes:
+        type: integer
+      ventas_promedio_n1_cop:
+        type: integer
+      ventas_promedio_n_cop:
+        type: integer
+      variacion_promedio_pct:
+        type: number
+      nuevos_empleos:
+        type: integer
+
+  DashboardPorGenero:
+    type: object
+    properties:
+      genero:
+        type: string
+        enum: ["Mujer", "Hombre"]
+      participantes:
+        type: integer
+      ventas_promedio_n1_cop:
+        type: integer
+      ventas_promedio_n_cop:
+        type: integer
+      variacion_promedio_pct:
+        type: number
+
+  DashboardPorAliado:
+    type: object
+    properties:
+      aliado:
+        type: string
+      participantes:
+        type: integer
+      nuevos_empleos:
+        type: integer
+
+  DashboardPorEdad:
+    type: object
+    properties:
+      rango:
+        type: string
+      participantes:
+        type: integer
+
+  DashboardVentasMensuales:
+    type: object
+    properties:
+      mes:
+        type: string
+        description: Abbreviated month name in Spanish (e.g. "Ene", "Feb")
+      promedio_cop:
+        type: integer
+        description: Average monthly sales across participants (COP)
+      n:
+        type: integer
+        description: Number of participants with data for this month
+
+  DashboardCartera:
+    type: object
+    description: Credit portfolio health metrics
+    properties:
+      total_con_credito:
+        type: integer
+      al_dia:
+        type: integer
+      en_mora:
+        type: integer
+      pct_mora:
+        type: number
+      saldo_mora_total_cop:
+        type: integer
+      por_clasificacion:
+        type: array
+        items:
+          $ref: '#/definitions/DashboardCarteraClasificacion'
+
+  DashboardCarteraClasificacion:
+    type: object
+    properties:
+      clasificacion:
+        type: string
+        description: Classification code (A, B, C, D, E)
+      label:
+        type: string
+        description: Human-readable label (e.g. "Normal (1-30 días)")
+      casos:
+        type: integer
+      saldo_mora_cop:
+        type: integer
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ── organizations ────────────────────────────────────────────────────────────
+
+  /organizations:
+    get:
+      tags: [organizations]
+      summary: List organizations
+      operationId: listOrganizations
+      parameters:
+        - name: active
+          in: query
+          type: boolean
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of organizations
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Organization'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /organizations/{id}:
+    get:
+      tags: [organizations]
+      summary: Get organization by ID
+      operationId: getOrganizationById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Organization object
+          schema:
+            $ref: '#/definitions/Organization'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  /internal-users:
+    get:
+      tags: [organizations]
+      summary: List internal users
+      operationId: listInternalUsers
+      parameters:
+        - name: organization_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+        - name: active
+          in: query
+          type: boolean
+          required: false
+        - name: role
+          in: query
+          type: string
+          enum: [admin, operator, viewer]
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of internal users
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/InternalUser'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /internal-users/{id}:
+    get:
+      tags: [organizations]
+      summary: Get internal user by ID
+      operationId: getInternalUserById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Internal user object
+          schema:
+            $ref: '#/definitions/InternalUser'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  # ── entrepreneurs ────────────────────────────────────────────────────────────
+
+  /entrepreneurs:
+    get:
+      tags: [entrepreneurs]
+      summary: List entrepreneurs
+      operationId: listEntrepreneurs
+      parameters:
+        - name: active
+          in: query
+          type: boolean
+          required: false
+        - name: query
+          in: query
+          type: string
+          required: false
+          description: Full-name substring search
+        - name: municipality
+          in: query
+          type: string
+          required: false
+        - name: department
+          in: query
+          type: string
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of entrepreneurs
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Entrepreneur'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /entrepreneurs/{id}:
+    get:
+      tags: [entrepreneurs]
+      summary: Get entrepreneur by ID (with enriched profile data)
+      operationId: getEntrepreneurById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Entrepreneur with optional business_profile, latest_snapshot, and financial_profile
+          schema:
+            $ref: '#/definitions/Entrepreneur'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  /business-profiles:
+    get:
+      tags: [entrepreneurs]
+      summary: List business profiles
+      operationId: listBusinessProfiles
+      parameters:
+        - name: entrepreneur_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of business profiles
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/BusinessProfile'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /business-profiles/{id}:
+    get:
+      tags: [entrepreneurs]
+      summary: Get business profile by ID
+      operationId: getBusinessProfileById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Business profile object
+          schema:
+            $ref: '#/definitions/BusinessProfile'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  /entrepreneur-snapshots:
+    get:
+      tags: [entrepreneurs]
+      summary: List entrepreneur profile snapshots
+      operationId: listEntrepreneurSnapshots
+      parameters:
+        - name: entrepreneur_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+        - name: is_latest
+          in: query
+          type: boolean
+          required: false
+          description: Filter to only the latest snapshot per entrepreneur
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of entrepreneur profile snapshots
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/EntrepreneurProfileSnapshot'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /entrepreneur-snapshots/{id}:
+    get:
+      tags: [entrepreneurs]
+      summary: Get entrepreneur profile snapshot by ID
+      operationId: getEntrepreneurSnapshotById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Entrepreneur profile snapshot object
+          schema:
+            $ref: '#/definitions/EntrepreneurProfileSnapshot'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  /financial-profiles:
+    get:
+      tags: [entrepreneurs]
+      summary: List financial profiles
+      operationId: listFinancialProfiles
+      parameters:
+        - name: entrepreneur_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+        - name: credit_level
+          in: query
+          type: string
+          enum: [bajo, medio, alto, excelente]
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of financial profiles
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/FinancialProfile'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /financial-profiles/{id}:
+    get:
+      tags: [entrepreneurs]
+      summary: Get financial profile by ID
+      operationId: getFinancialProfileById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Financial profile object
+          schema:
+            $ref: '#/definitions/FinancialProfile'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  # ── credentials ──────────────────────────────────────────────────────────────
+
+  /credentials:
+    get:
+      tags: [credentials]
+      summary: List credentials
+      operationId: listCredentials
+      parameters:
+        - name: entrepreneur_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+        - name: status
+          in: query
+          type: string
+          enum: [draft, issued, revoked, expired, pending_endorsement]
+          required: false
+        - name: credential_type
+          in: query
+          type: string
+          enum: [impact, verification, endorsement]
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of credentials
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Credential'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  # NOTE: /credentials/public/{public_id} is declared BEFORE /credentials/{id}
+  # to prevent Swagger parsers from treating "public" as a UUID path parameter.
+  /credentials/public/{public_id}:
+    get:
+      tags: [credentials]
+      summary: Get credential by public ID (used by the verification portal)
+      operationId: getCredentialByPublicId
+      parameters:
+        - name: public_id
+          in: path
+          required: true
+          type: string
+          description: Human-readable public identifier (not a UUID)
+      responses:
+        200:
+          description: Credential object
+          schema:
+            $ref: '#/definitions/Credential'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  /credentials/{id}:
+    get:
+      tags: [credentials]
+      summary: Get credential by ID
+      operationId: getCredentialById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Credential object
+          schema:
+            $ref: '#/definitions/Credential'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  /issuance-drafts:
+    get:
+      tags: [credentials]
+      summary: List issuance drafts
+      operationId: listIssuanceDrafts
+      parameters:
+        - name: entrepreneur_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+        - name: status
+          in: query
+          type: string
+          enum: [draft, ready, archived]
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of issuance drafts
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/IssuanceDraft'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /issuance-drafts/{id}:
+    get:
+      tags: [credentials]
+      summary: Get issuance draft by ID
+      operationId: getIssuanceDraftById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Issuance draft object
+          schema:
+            $ref: '#/definitions/IssuanceDraft'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  /credential-templates:
+    get:
+      tags: [credentials]
+      summary: List credential templates
+      operationId: listCredentialTemplates
+      parameters:
+        - name: organization_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+        - name: credential_type
+          in: query
+          type: string
+          enum: [impact, verification, endorsement]
+          required: false
+        - name: active
+          in: query
+          type: boolean
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of credential templates
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/CredentialTemplate'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /credential-templates/{id}:
+    get:
+      tags: [credentials]
+      summary: Get credential template by ID
+      operationId: getCredentialTemplateById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Credential template object
+          schema:
+            $ref: '#/definitions/CredentialTemplate'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  # ── forms-sync ───────────────────────────────────────────────────────────────
+
+  /form-sources:
+    get:
+      tags: [forms-sync]
+      summary: List form sources
+      operationId: listFormSources
+      parameters:
+        - name: organization_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+        - name: provider
+          in: query
+          type: string
+          required: false
+        - name: active
+          in: query
+          type: boolean
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of form sources
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/FormSource'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /form-sources/{id}:
+    get:
+      tags: [forms-sync]
+      summary: Get form source by ID
+      operationId: getFormSourceById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Form source object
+          schema:
+            $ref: '#/definitions/FormSource'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  /form-submissions:
+    get:
+      tags: [forms-sync]
+      summary: List raw form submissions
+      operationId: listFormSubmissions
+      parameters:
+        - name: form_source_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of raw form submissions
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/FormSubmissionRaw'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /form-submissions/{id}:
+    get:
+      tags: [forms-sync]
+      summary: Get raw form submission by ID
+      operationId: getFormSubmissionById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Raw form submission object
+          schema:
+            $ref: '#/definitions/FormSubmissionRaw'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  /form-sync-runs:
+    get:
+      tags: [forms-sync]
+      summary: List form sync runs
+      operationId: listFormSyncRuns
+      parameters:
+        - name: form_source_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+        - name: status
+          in: query
+          type: string
+          enum: [running, success, partial_success, failed]
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of form sync runs
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/FormSyncRun'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /form-sync-runs/{id}:
+    get:
+      tags: [forms-sync]
+      summary: Get form sync run by ID
+      operationId: getFormSyncRunById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Form sync run object
+          schema:
+            $ref: '#/definitions/FormSyncRun'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  # ── verification ─────────────────────────────────────────────────────────────
+
+  /verification-records:
+    get:
+      tags: [verification]
+      summary: List verification records
+      operationId: listVerificationRecords
+      parameters:
+        - name: credential_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+        - name: verification_result
+          in: query
+          type: string
+          enum: [success, failed]
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of verification records
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/VerificationRecord'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /verification-records/{id}:
+    get:
+      tags: [verification]
+      summary: Get verification record by ID
+      operationId: getVerificationRecordById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          format: uuid
+      responses:
+        200:
+          description: Verification record object
+          schema:
+            $ref: '#/definitions/VerificationRecord'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  # ── analytics ────────────────────────────────────────────────────────────────
+
+  /analytics/dashboard:
+    get:
+      tags: [analytics]
+      summary: Get full dashboard aggregate data
+      description: >
+        Returns the complete aggregated impact metrics for the MicroMBA GIVE Colombia
+        program, including sales data, employment statistics, cartera health, and
+        breakdowns by program, gender, ally, and age group.
+      operationId: getDashboardData
+      responses:
+        200:
+          description: Full dashboard aggregate data object
+          schema:
+            $ref: '#/definitions/DashboardData'
+        500:
+          $ref: '#/responses/Error500'
+
+  /analytics/empresarios:
+    get:
+      tags: [analytics]
+      summary: List raw empresario records
+      description: >
+        Returns individual entrepreneur records sourced from the MicroMBA impact
+        measurement spreadsheet. Field names are in Spanish matching the original
+        data export format.
+      operationId: listEmpresarios
+      parameters:
+        - name: programa
+          in: query
+          type: string
+          enum: ["MBA Empresarial", "MBA Agroempresarial"]
+          required: false
+        - name: genero
+          in: query
+          type: string
+          enum: ["Mujer", "Hombre"]
+          required: false
+        - name: solicito_credito
+          in: query
+          type: string
+          enum: ["Sí", "No"]
+          required: false
+        - name: en_mora
+          in: query
+          type: string
+          enum: ["Sí", "No"]
+          required: false
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 100
+          maximum: 500
+          required: false
+      responses:
+        200:
+          description: Paginated list of raw empresario records
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/EmpresarioRecord'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
