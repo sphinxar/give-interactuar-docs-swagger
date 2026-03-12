@@ -31,7 +31,11 @@ tags:
   - name: verification
     description: Credential verification records
   - name: analytics
-    description: Dashboard aggregates and raw empresario records
+    description: Dashboard aggregates and entrepreneur records
+  - name: impact-credentials
+    description: Derived impact measurement credentials (impact, behavior, profile)
+  - name: entrepreneur-risk
+    description: Entrepreneur risk table with credit status, overdue details, and accompaniment
 
 # ── Reusable Responses ────────────────────────────────────────────────────────
 
@@ -746,85 +750,152 @@ definitions:
 
   # --- analytics (from db-schema JSON files) -----------------------------------
 
-  EmpresarioRecord:
+  EntrepreneurRecord:
     type: object
     description: >
-      Raw empresario record sourced from the MicroMBA impact measurement spreadsheet.
-      All field names are in Spanish matching the original data export format.
+      Denormalized entrepreneur record with all impact measurement fields,
+      sourced from the MicroMBA impact measurement data.
     properties:
-      nombre:
+      document_number:
         type: string
-      empresa:
+      full_name:
+        type: string
+      business_name:
         type: string
         x-nullable: true
-      programa:
+      program:
         type: string
-        enum: ["MBA Empresarial", "MBA Agroempresarial"]
-      aliado:
+        enum: ["Entrepreneurial MBA", "Agribusiness MBA"]
+      ally:
         type: string
-      estado:
+      enrollment_status:
         type: string
-      genero:
+      gender:
         type: string
-        enum: ["Mujer", "Hombre"]
-      municipio:
+        enum: ["Woman", "Man"]
+      municipality:
         type: string
       sector:
         type: string
-      ventas_n1_cop:
+      sales_prev_year_cop:
         type: integer
         x-nullable: true
-        description: Baseline annual sales in COP (year N-1)
-      ventas_n_cop:
+        description: Baseline annual sales in COP (previous year)
+      sales_current_year_cop:
         type: integer
         x-nullable: true
-        description: Current annual sales in COP (year N)
-      variacion_pct:
+        description: Current annual sales in COP
+      sales_variation_pct:
         type: number
         x-nullable: true
         description: Percentage variation in sales vs baseline
-      nuevos_empleos:
+      new_jobs:
         type: integer
         x-nullable: true
         description: Net new jobs created during the program
-      nivel:
+      level:
         type: string
-      grupo:
+      cohort_name:
         type: string
-      anio_cohorte:
+      cohort_year:
         type: integer
         description: Program cohort year (e.g. 2024)
-      credito_vigente:
+      active_credit:
         type: string
         x-nullable: true
-      escolaridad:
+      education_level:
         type: string
         x-nullable: true
-      estrato:
+      socioeconomic_stratum:
         type: integer
         x-nullable: true
         description: Socioeconomic stratum (1–6 in Colombian classification)
-      zona_residencia:
+      home_zone:
         type: string
         x-nullable: true
-      figura_legal:
+      legal_figure:
         type: string
         x-nullable: true
-      tamanio_empresa:
+      business_size:
         type: string
         x-nullable: true
-      edad:
+      age:
         type: integer
         x-nullable: true
-      rango_edad:
+      age_range:
         type: string
         x-nullable: true
-      solicito_credito:
+      requested_credit:
         type: string
-        enum: ["Sí", "No"]
-      en_mora:
+        enum: ["Yes", "No"]
+      overdue:
         type: string
-        enum: ["Sí", "No"]
+        enum: ["Yes", "No"]
+      years_in_operation:
+        type: integer
+        x-nullable: true
+      total_costs_cop:
+        type: integer
+        x-nullable: true
+      total_assets_cop:
+        type: integer
+        x-nullable: true
+      total_liabilities_cop:
+        type: integer
+        x-nullable: true
+      current_employees:
+        type: integer
+        x-nullable: true
+      is_formalized:
+        type: boolean
+        x-nullable: true
+      risk_category:
+        type: string
+        enum: [low, medium, high, insufficient_data]
+        x-nullable: true
+        description: >
+          Derived risk level based on days_overdue and overdue_balance_cop.
+          null when credit data is unavailable.
+      days_overdue:
+        type: integer
+        x-nullable: true
+        description: Days overdue from im_overdue_credits; null if no overdue record
+      overdue_balance_cop:
+        type: integer
+        x-nullable: true
+        description: Overdue balance in COP from im_overdue_credits; null if no overdue record
+      credit_classification:
+        type: string
+        enum: [gold, silver, bronze, none]
+        x-nullable: true
+        description: >
+          Derived from im_overdue_credits.classification:
+          A → gold, B/C → silver, D/E → bronze, no credit → none
+      credit_status:
+        type: string
+        enum: [current, overdue_30, overdue_60, overdue_90, overdue_180_plus, written_off, no_credit]
+        x-nullable: true
+        description: Derived credit status from classification and days_overdue
+      active_credit_count:
+        type: integer
+        x-nullable: true
+        description: Number of active credits for this entrepreneur
+      accompaniment_type:
+        type: string
+        enum: [mba, basic_training, list]
+        x-nullable: true
+        description: >
+          Derived from im_cohorts.program and level:
+          MBA → mba, Formación básica → basic_training, Lista → list
+      accompaniment_stage:
+        type: string
+        x-nullable: true
+        description: Current stage/segment from im_measurements.credit_segment_end
+      last_accompaniment_date:
+        type: string
+        format: date
+        x-nullable: true
+        description: Most recent measurement date from im_measurements
 
   DashboardData:
     type: object
@@ -833,175 +904,506 @@ definitions:
       metadata:
         type: object
         properties:
-          programa:
+          program:
             type: string
-          periodo:
+          period:
             type: string
-          nota:
+          note:
             type: string
-          fuente:
+          source:
             type: string
-      resumen:
-        $ref: '#/definitions/DashboardResumen'
-      por_programa:
+      summary:
+        $ref: '#/definitions/DashboardSummary'
+      by_program:
         type: array
         items:
-          $ref: '#/definitions/DashboardPorPrograma'
-      por_genero:
+          $ref: '#/definitions/DashboardByProgram'
+      by_gender:
         type: array
         items:
-          $ref: '#/definitions/DashboardPorGenero'
-      por_aliado:
+          $ref: '#/definitions/DashboardByGender'
+      by_ally:
         type: array
         items:
-          $ref: '#/definitions/DashboardPorAliado'
-      por_edad:
+          $ref: '#/definitions/DashboardByAlly'
+      by_age:
         type: array
         items:
-          $ref: '#/definitions/DashboardPorEdad'
-      ventas_mensuales:
+          $ref: '#/definitions/DashboardByAge'
+      monthly_sales:
         type: array
         items:
-          $ref: '#/definitions/DashboardVentasMensuales'
-      cartera:
-        $ref: '#/definitions/DashboardCartera'
+          $ref: '#/definitions/DashboardMonthlySales'
+      portfolio:
+        $ref: '#/definitions/DashboardPortfolio'
+      enrollment_trend:
+        type: array
+        description: Enrollment growth over time per cohort/period
+        items:
+          $ref: '#/definitions/DashboardEnrollmentTrend'
+      credit_accompaniment_gap:
+        $ref: '#/definitions/DashboardCreditAccompanimentGap'
+      by_accompaniment_type:
+        type: array
+        description: Breakdown by accompaniment type (MBA, basic training, list)
+        items:
+          $ref: '#/definitions/DashboardByAccompanimentType'
+      formalization:
+        $ref: '#/definitions/DashboardFormalization'
+      by_department:
+        type: array
+        description: Participant count by Colombian department
+        items:
+          $ref: '#/definitions/DashboardByDepartment'
+      by_industry:
+        type: array
+        description: Participant count by industry/sector
+        items:
+          $ref: '#/definitions/DashboardByIndustry'
+      by_stratum:
+        type: array
+        description: Participant count by socioeconomic stratum (1–6)
+        items:
+          $ref: '#/definitions/DashboardByStratum'
 
-  DashboardResumen:
+  DashboardSummary:
     type: object
     description: High-level summary statistics for the program period
     properties:
-      total_participantes:
+      total_participants:
         type: integer
-      activos:
+      active_count:
         type: integer
-      tasa_retencion_pct:
+      retention_rate_pct:
         type: number
-      mujeres:
+      women:
         type: integer
-      hombres:
+      men:
         type: integer
-      pct_mujeres:
+      women_percentage:
         type: number
-      ventas_total_n1_cop:
+      previous_year_sales_total_cop:
         type: integer
         description: Total sales of all participants at baseline (COP)
-      ventas_total_n_cop:
+      current_year_sales_total_cop:
         type: integer
         description: Total sales of all participants at current period (COP)
-      ventas_promedio_n1_cop:
+      average_previous_year_sales_cop:
         type: integer
         description: Average sales per participant at baseline (COP)
-      ventas_promedio_n_cop:
+      average_current_year_sales_cop:
         type: integer
         description: Average sales per participant at current period (COP)
-      variacion_promedio_pct:
+      average_variation_pct:
         type: number
         description: Average percentage sales variation (outliers excluded)
-      empleos_tc_n1:
+      full_time_jobs_previous_year:
         type: integer
         description: Full-time equivalent jobs at baseline
-      empleos_tc_n:
+      full_time_jobs_current_year:
         type: integer
         description: Full-time equivalent jobs at current period
-      nuevos_empleos:
+      new_jobs:
         type: integer
-      empleos_formalizados:
+      formalized_jobs:
         type: integer
 
-  DashboardPorPrograma:
+  DashboardByProgram:
     type: object
     properties:
-      programa:
+      program:
         type: string
-      participantes:
+      participants:
         type: integer
-      ventas_promedio_n1_cop:
+      average_previous_year_sales_cop:
         type: integer
-      ventas_promedio_n_cop:
+      average_current_year_sales_cop:
         type: integer
-      variacion_promedio_pct:
+      average_variation_pct:
         type: number
-      nuevos_empleos:
+      new_jobs:
         type: integer
 
-  DashboardPorGenero:
+  DashboardByGender:
     type: object
     properties:
-      genero:
+      gender:
         type: string
-        enum: ["Mujer", "Hombre"]
-      participantes:
+        enum: ["Woman", "Man"]
+      participants:
         type: integer
-      ventas_promedio_n1_cop:
+      average_previous_year_sales_cop:
         type: integer
-      ventas_promedio_n_cop:
+      average_current_year_sales_cop:
         type: integer
-      variacion_promedio_pct:
+      average_variation_pct:
         type: number
 
-  DashboardPorAliado:
+  DashboardByAlly:
     type: object
     properties:
-      aliado:
+      ally:
         type: string
-      participantes:
+      participants:
         type: integer
-      nuevos_empleos:
-        type: integer
-
-  DashboardPorEdad:
-    type: object
-    properties:
-      rango:
-        type: string
-      participantes:
+      new_jobs:
         type: integer
 
-  DashboardVentasMensuales:
+  DashboardByAge:
     type: object
     properties:
-      mes:
+      range:
         type: string
-        description: Abbreviated month name in Spanish (e.g. "Ene", "Feb")
-      promedio_cop:
+      participants:
+        type: integer
+
+  DashboardMonthlySales:
+    type: object
+    properties:
+      month:
+        type: string
+        description: Abbreviated month name (e.g. "Jan", "Feb")
+      average_cop:
         type: integer
         description: Average monthly sales across participants (COP)
       n:
         type: integer
         description: Number of participants with data for this month
 
-  DashboardCartera:
+  DashboardPortfolio:
     type: object
     description: Credit portfolio health metrics
     properties:
-      total_con_credito:
+      total_with_credit:
         type: integer
-      al_dia:
+      current:
         type: integer
-      en_mora:
+      in_default:
         type: integer
-      pct_mora:
+      default_rate_pct:
         type: number
-      saldo_mora_total_cop:
+      total_overdue_balance_cop:
         type: integer
-      por_clasificacion:
+      by_classification:
         type: array
         items:
-          $ref: '#/definitions/DashboardCarteraClasificacion'
+          $ref: '#/definitions/DashboardPortfolioClassification'
 
-  DashboardCarteraClasificacion:
+  DashboardPortfolioClassification:
     type: object
     properties:
-      clasificacion:
+      classification:
         type: string
         description: Classification code (A, B, C, D, E)
       label:
         type: string
-        description: Human-readable label (e.g. "Normal (1-30 días)")
-      casos:
+        description: Human-readable label (e.g. "Normal (A)")
+      cases:
         type: integer
-      saldo_mora_cop:
+      overdue_balance_cop:
         type: integer
+
+  DashboardEnrollmentTrend:
+    type: object
+    description: Enrollment count for a given period/cohort, with cumulative total
+    properties:
+      period:
+        type: string
+        description: Period label, e.g. "2023-Q1" or cohort name
+      year:
+        type: integer
+      cohort_name:
+        type: string
+        x-nullable: true
+      program:
+        type: string
+      participants:
+        type: integer
+        description: New enrollments in this period
+      cumulative_total:
+        type: integer
+        description: Running total of enrollments up to and including this period
+
+  DashboardCreditAccompanimentGap:
+    type: object
+    description: Cross-tabulation of credit access vs active accompaniment
+    properties:
+      total_participants:
+        type: integer
+      with_credit:
+        type: integer
+      with_accompaniment:
+        type: integer
+      with_both:
+        type: integer
+      with_neither:
+        type: integer
+      credit_only_pct:
+        type: number
+        description: Percentage with credit but no active accompaniment
+      accompaniment_only_pct:
+        type: number
+        description: Percentage with accompaniment but no credit
+      both_pct:
+        type: number
+        description: Percentage with both credit and accompaniment
+      gap_pct:
+        type: number
+        description: Percentage with credit but no active accompaniment (the GAP)
+
+  DashboardByAccompanimentType:
+    type: object
+    description: Participant statistics grouped by accompaniment type
+    properties:
+      accompaniment_type:
+        type: string
+        enum: [mba, basic_training, list]
+      participants:
+        type: integer
+      active_count:
+        type: integer
+      completion_rate_pct:
+        type: number
+        x-nullable: true
+
+  DashboardFormalization:
+    type: object
+    description: Business formalization statistics
+    properties:
+      total:
+        type: integer
+      formalized:
+        type: integer
+      not_formalized:
+        type: integer
+      formalization_rate_pct:
+        type: number
+      by_sector:
+        type: array
+        items:
+          type: object
+          properties:
+            sector:
+              type: string
+            total:
+              type: integer
+            formalized:
+              type: integer
+            rate_pct:
+              type: number
+
+  DashboardByDepartment:
+    type: object
+    description: Participant count for a Colombian department
+    properties:
+      department:
+        type: string
+      participants:
+        type: integer
+
+  DashboardByIndustry:
+    type: object
+    description: Participant count for an industry/sector
+    properties:
+      sector:
+        type: string
+      participants:
+        type: integer
+
+  DashboardByStratum:
+    type: object
+    description: Participant count for a socioeconomic stratum (1–6)
+    properties:
+      stratum:
+        type: integer
+        description: Socioeconomic stratum number (1–6)
+        minimum: 1
+        maximum: 6
+      label:
+        type: string
+        description: Human-readable label, e.g. "Estrato 1"
+      participants:
+        type: integer
+
+  ImpactCredentialData:
+    type: object
+    description: >
+      Derived impact credential showing whether a business grows, sustains, or deteriorates.
+    properties:
+      entrepreneur_id:
+        type: string
+        format: uuid
+      full_name:
+        type: string
+      document_number:
+        type: string
+      business_name:
+        type: string
+        x-nullable: true
+      economic_sector:
+        type: string
+        x-nullable: true
+      years_in_operation:
+        type: integer
+        x-nullable: true
+      total_sales_prev_year:
+        type: integer
+        x-nullable: true
+        description: Total annual sales in COP (previous year)
+      total_sales_current_year:
+        type: integer
+        x-nullable: true
+        description: Total annual sales in COP (current year)
+      sales_variation_pct:
+        type: number
+        x-nullable: true
+        description: "((current_sales - previous_sales) / previous_sales) × 100"
+      current_full_time_employees:
+        type: integer
+        x-nullable: true
+      new_jobs_generated:
+        type: integer
+        x-nullable: true
+        description: current_employees - previous_employees
+      new_jobs_formalized:
+        type: integer
+        x-nullable: true
+        description: current_social_security - previous_social_security
+      verdict:
+        type: string
+        enum: [growing, sustaining, deteriorating, insufficient_data]
+        description: ">5% → growing, -5% to 5% → sustaining, <-5% → deteriorating"
+
+  BehaviorCredentialData:
+    type: object
+    description: >
+      Derived behavior credential showing financial stability and payment capacity indicators.
+    properties:
+      entrepreneur_id:
+        type: string
+        format: uuid
+      full_name:
+        type: string
+      document_number:
+        type: string
+      credit_segment_start:
+        type: string
+        x-nullable: true
+      credit_segment_end:
+        type: string
+        x-nullable: true
+      credit_active_12m:
+        type: boolean
+        x-nullable: true
+      avg_monthly_sales:
+        type: integer
+        x-nullable: true
+      avg_monthly_costs:
+        type: integer
+        x-nullable: true
+      total_assets:
+        type: integer
+        x-nullable: true
+      total_liabilities:
+        type: integer
+        x-nullable: true
+      estimated_operating_margin:
+        type: number
+        x-nullable: true
+        description: "((sales - costs) / sales) × 100"
+      leverage_ratio:
+        type: number
+        x-nullable: true
+        description: liabilities / assets
+      monthly_income_stability:
+        type: number
+        x-nullable: true
+        description: "1 - coefficient_of_variation(monthly_sales). Closer to 1 = more stable."
+      record_validity:
+        type: string
+        x-nullable: true
+        enum: [valid, invalid, insufficient_data]
+      estimated_operating_capacity:
+        type: string
+        x-nullable: true
+        enum: [high, medium, low, insufficient_data]
+        description: "Margin ≥20% → high, ≥10% → medium, <10% → low"
+      leverage_level:
+        type: string
+        x-nullable: true
+        enum: [healthy, moderate, high, insufficient_data]
+        description: "Ratio ≤0.4 → healthy, ≤0.7 → moderate, >0.7 → high"
+      commercial_stability:
+        type: string
+        x-nullable: true
+        enum: [stable, moderate, volatile, insufficient_data]
+        description: "CV ≤0.15 → stable, ≤0.35 → moderate, >0.35 → volatile"
+      financial_trend:
+        type: string
+        x-nullable: true
+        enum: [positive, neutral, negative, insufficient_data]
+        description: "Margin ≥15% AND Leverage ≤0.5 → positive; Margin ≥5% AND Leverage ≤0.8 → neutral; otherwise → negative"
+
+  ProfileCredentialData:
+    type: object
+    description: >
+      Derived profile credential showing formalization level and socioeconomic context.
+    properties:
+      entrepreneur_id:
+        type: string
+        format: uuid
+      full_name:
+        type: string
+      document_number:
+        type: string
+      document_type:
+        type: string
+        x-nullable: true
+      identity_validated:
+        type: boolean
+        x-nullable: true
+      education_level:
+        type: string
+        x-nullable: true
+      municipality:
+        type: string
+        x-nullable: true
+      residence_zone:
+        type: string
+        x-nullable: true
+      is_primary_provider:
+        type: boolean
+        x-nullable: true
+      avg_household_income:
+        type: integer
+        x-nullable: true
+      business_formalized:
+        type: boolean
+        x-nullable: true
+      nit:
+        type: string
+        x-nullable: true
+      years_in_operation:
+        type: integer
+        x-nullable: true
+      legal_figure:
+        type: string
+        x-nullable: true
+      business_size:
+        type: string
+        x-nullable: true
+      has_internet:
+        type: boolean
+        x-nullable: true
+      health_regime:
+        type: string
+        x-nullable: true
+      contributes_pension:
+        type: boolean
+        x-nullable: true
+      compensation_fund:
+        type: string
+        x-nullable: true
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -1950,35 +2352,39 @@ paths:
         500:
           $ref: '#/responses/Error500'
 
-  /analytics/empresarios:
+  /analytics/entrepreneurs:
     get:
       tags: [analytics]
-      summary: List raw empresario records
+      summary: List entrepreneur records with all measurement fields
       description: >
-        Returns individual entrepreneur records sourced from the MicroMBA impact
-        measurement spreadsheet. Field names are in Spanish matching the original
-        data export format.
-      operationId: listEmpresarios
+        Returns denormalized individual entrepreneur records with all impact
+        measurement fields sourced from the MicroMBA program data.
+      operationId: listAnalyticsEntrepreneurs
       parameters:
-        - name: programa
+        - name: program
           in: query
           type: string
-          enum: ["MBA Empresarial", "MBA Agroempresarial"]
+          enum: ["Entrepreneurial MBA", "Agribusiness MBA"]
           required: false
-        - name: genero
+        - name: gender
           in: query
           type: string
-          enum: ["Mujer", "Hombre"]
+          enum: ["Woman", "Man"]
           required: false
-        - name: solicito_credito
+        - name: ally
           in: query
           type: string
-          enum: ["Sí", "No"]
           required: false
-        - name: en_mora
+          description: Filter by ally name (partial or exact match)
+        - name: requested_credit
           in: query
           type: string
-          enum: ["Sí", "No"]
+          enum: ["Yes", "No"]
+          required: false
+        - name: overdue
+          in: query
+          type: string
+          enum: ["Yes", "No"]
           required: false
         - name: page
           in: query
@@ -1994,17 +2400,317 @@ paths:
           required: false
       responses:
         200:
-          description: Paginated list of raw empresario records
+          description: Paginated list of entrepreneur records
           schema:
             type: object
             properties:
               data:
                 type: array
                 items:
-                  $ref: '#/definitions/EmpresarioRecord'
+                  $ref: '#/definitions/EntrepreneurRecord'
               meta:
                 $ref: '#/definitions/PaginationMeta'
         400:
           $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /analytics/entrepreneur-risk:
+    get:
+      tags: [entrepreneur-risk]
+      summary: Entrepreneur risk table with credit and accompaniment details
+      description: >
+        Returns a rich, paginated list of entrepreneur records enriched with
+        risk category, credit status, overdue details (days + balance),
+        gold/silver/bronze classification, active credit count, accompaniment
+        type and stage, and last accompaniment date.
+        Data is sourced from im_overdue_credits, im_measurements, and im_cohorts.
+      operationId: listEntrepreneurRisk
+      parameters:
+        - name: program
+          in: query
+          type: string
+          enum: ["Entrepreneurial MBA", "Agribusiness MBA"]
+          required: false
+        - name: gender
+          in: query
+          type: string
+          enum: ["Woman", "Man"]
+          required: false
+        - name: ally
+          in: query
+          type: string
+          required: false
+          description: Filter by ally name (partial or exact match)
+        - name: overdue
+          in: query
+          type: string
+          enum: ["Yes", "No"]
+          required: false
+        - name: risk_category
+          in: query
+          type: string
+          enum: [low, medium, high, insufficient_data]
+          required: false
+          description: Filter by derived risk level
+        - name: credit_status
+          in: query
+          type: string
+          enum: [current, overdue_30, overdue_60, overdue_90, overdue_180_plus, written_off, no_credit]
+          required: false
+          description: Filter by credit status
+        - name: accompaniment_type
+          in: query
+          type: string
+          enum: [mba, basic_training, list]
+          required: false
+          description: Filter by accompaniment type
+        - name: active_course
+          in: query
+          type: boolean
+          required: false
+          description: "true = only participants currently in an active MBA/course"
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: Paginated list of entrepreneur records with risk and accompaniment fields
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/EntrepreneurRecord'
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        500:
+          $ref: '#/responses/Error500'
+
+  /credentials/impact:
+    get:
+      tags: [impact-credentials]
+      summary: Get impact credential(s) — business growth verdict
+      description: >
+        Returns derived impact credentials showing whether a business grows,
+        sustains, or deteriorates based on sales and employment data.
+        If entrepreneur_id is provided, returns a single record; otherwise
+        returns a paginated list.
+      operationId: getImpactCredentials
+      parameters:
+        - name: entrepreneur_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+          description: Entrepreneur ID. If omitted, returns all (with pagination).
+        - name: year
+          in: query
+          type: integer
+          required: false
+          description: Measurement year. If omitted, uses the most recent.
+        - name: verdict
+          in: query
+          type: string
+          enum: [growing, sustaining, deteriorating, insufficient_data]
+          required: false
+        - name: has_business
+          in: query
+          type: boolean
+          required: false
+          description: "true = only with business, false = only without business"
+        - name: has_sales
+          in: query
+          type: boolean
+          required: false
+          description: "true = only with sales, false = only without sales"
+        - name: has_employees
+          in: query
+          type: boolean
+          required: false
+          description: "true = only with employees, false = only without employees"
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: >
+            Single record (when entrepreneur_id is provided) or paginated list.
+          schema:
+            type: object
+            properties:
+              data:
+                description: Single object if entrepreneur_id provided, array otherwise
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  /credentials/behavior:
+    get:
+      tags: [impact-credentials]
+      summary: Get behavior credential(s) — financial stability and payment capacity
+      description: >
+        Returns derived behavior credentials showing signs of financial stability
+        and payment capacity based on sales, costs, assets, and liabilities.
+        If entrepreneur_id is provided, returns a single record; otherwise
+        returns a paginated list.
+      operationId: getBehaviorCredentials
+      parameters:
+        - name: entrepreneur_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+          description: Entrepreneur ID. If omitted, returns all (with pagination).
+        - name: year
+          in: query
+          type: integer
+          required: false
+          description: Measurement year. If omitted, uses the most recent.
+        - name: financial_trend
+          in: query
+          type: string
+          enum: [positive, neutral, negative, insufficient_data]
+          required: false
+        - name: operating_capacity
+          in: query
+          type: string
+          enum: [high, medium, low, insufficient_data]
+          required: false
+        - name: leverage_level
+          in: query
+          type: string
+          enum: [healthy, moderate, high, insufficient_data]
+          required: false
+        - name: credit_active
+          in: query
+          type: boolean
+          required: false
+          description: "true = with active credit, false = without credit"
+        - name: has_financial_data
+          in: query
+          type: boolean
+          required: false
+          description: "true = only with complete financial data"
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: >
+            Single record (when entrepreneur_id is provided) or paginated list.
+          schema:
+            type: object
+            properties:
+              data:
+                description: Single object if entrepreneur_id provided, array otherwise
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
+        500:
+          $ref: '#/responses/Error500'
+
+  /credentials/profile:
+    get:
+      tags: [impact-credentials]
+      summary: Get profile credential(s) — formalization and socioeconomic context
+      description: >
+        Returns derived profile credentials showing the formalization level and
+        socioeconomic context of entrepreneurs.
+        If entrepreneur_id is provided, returns a single record; otherwise
+        returns a paginated list.
+      operationId: getProfileCredentials
+      parameters:
+        - name: entrepreneur_id
+          in: query
+          type: string
+          format: uuid
+          required: false
+          description: Entrepreneur ID. If omitted, returns all (with pagination).
+        - name: is_formalized
+          in: query
+          type: boolean
+          required: false
+          description: "true = only formalized businesses, false = only non-formalized"
+        - name: identity_validated
+          in: query
+          type: boolean
+          required: false
+          description: "true = only with validated identity, false = not validated"
+        - name: has_internet
+          in: query
+          type: boolean
+          required: false
+          description: "true = only with internet, false = without internet"
+        - name: contributes_pension
+          in: query
+          type: boolean
+          required: false
+          description: "true = only pension contributors, false = non-contributors"
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          minimum: 1
+          required: false
+        - name: page_size
+          in: query
+          type: integer
+          default: 50
+          maximum: 200
+          required: false
+      responses:
+        200:
+          description: >
+            Single record (when entrepreneur_id is provided) or paginated list.
+          schema:
+            type: object
+            properties:
+              data:
+                description: Single object if entrepreneur_id provided, array otherwise
+              meta:
+                $ref: '#/definitions/PaginationMeta'
+        400:
+          $ref: '#/responses/Error400'
+        404:
+          $ref: '#/responses/Error404'
         500:
           $ref: '#/responses/Error500'
