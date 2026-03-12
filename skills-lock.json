@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "openapi-specification-v2": {
+      "source": "hairyf/skills",
+      "sourceType": "github",
+      "computedHash": "7cb94a317847992404b0a3d9882e7a6c2c86b6eddccd02eb4ad128f57fcdca3a"
+    },
+    "ui-design-patterns": {
+      "source": "dirnbauer/webconsulting-skills",
+      "sourceType": "github",
+      "computedHash": "5f03983927086538ba3f3d358399ba61abd92570528dde46b85bfe71d80c66fd"
+    }
+  }
+}
