@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GIVE Interactuar — API Docs
 
-## Getting Started
+Interactive API documentation for the **GIVE Interactuar** impact-measurement platform. Renders the OpenAPI 2.0 (Swagger) specification as an interactive UI where you can read endpoint details, explore schemas, and try requests live.
 
-First, run the development server:
+## What it is
+
+- A **Next.js** app that serves `public/openapi.yaml` through **Swagger UI**.
+- The spec documents the read-only REST API backed by **Supabase (PostgreSQL)**.
+- All wire formats use `snake_case` JSON; timestamps are ISO 8601 UTC.
+
+## API overview
+
+| Tag | What it covers |
+|---|---|
+| `organizations` | Organizations and internal users |
+| `entrepreneurs` | Entrepreneurs, business profiles, snapshots, financial profiles |
+| `credentials` | Verifiable credentials, issuance drafts, templates |
+| `forms-sync` | Form sources, raw submissions, sync run logs |
+| `verification` | Credential verification records |
+| `analytics` | Dashboard aggregates and entrepreneur records |
+| `entrepreneur-risk` | Risk table: credit status, overdue details, accompaniment |
+| `impact-credentials` | Derived impact/behavior/profile credentials |
+
+**Base URL:** `https://give-interactuar.vercel.app/api`
+
+## Local development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) — Swagger UI loads automatically.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Editing the spec
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The single source of truth is `public/openapi.yaml` (Swagger 2.0). After editing, validate before committing:
 
-## Learn More
+```bash
+npx swagger-cli validate public/openapi.yaml
+```
 
-To learn more about Next.js, take a look at the following resources:
+Then restart the dev server (or just reload the browser — Next.js serves the file statically).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+public/
+  openapi.yaml          # Swagger 2.0 spec — edit this to update the docs
+src/app/
+  page.tsx              # Header + info bar + Swagger UI mount
+  components/
+    SwaggerUI.tsx        # swagger-ui-react wrapper (client component)
+    SwaggerUIClient.tsx  # Dynamic import with SSR disabled
+api-medicion-impacto.md # Narrative API guide with query examples
+```
 
-## Deploy on Vercel
+## Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Deployed on Vercel. Any push to `main` triggers an automatic deploy. The live docs are at:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+https://give-interactuar-docs-swagger.vercel.app
+```
